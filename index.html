@@ -80,9 +80,6 @@
 </body>
 
 <script>
-  // Source palette: https://twitter.com/AlexCristache/status/1738610343499157872
-  // Idea for Pong wars: https://twitter.com/nicolasdnl/status/1749715070928433161
-
   const colorPalette = {
     ArcticPowder: "#F1F6F4",
     MysticMint: "#D9E8E3",
@@ -102,27 +99,23 @@
   const NIGHT_BALL_COLOR = colorPalette.MysticMint;
   const NEITHER_COLOR = colorPalette.ArcticPowder;
   const WALL_COLOR = colorPalette.DeepSaffron;
-  const HEXAGON_SIZE = 20; // 隣の六角形との中心間距離
+  const HEXAGON_SIZE = 20;
   const BALL_RADIUS = HEXAGON_SIZE / 1.5;
 
-  const MID_SPEED = 1.5
-  const MIN_SPEED = MID_SPEED / 2;
+  const MID_SPEED = 2;
+  const MIN_SPEED = MID_SPEED / 1.5;
   const MAX_SPEED = MID_SPEED * 1.5;
 
-  const HEXAGON_MAP_LEVEL = 5;
-
+  const HEXAGON_MAP_LEVEL = 6;
 
   let dayScore = 0;
   let nightScore = 0;
 
-
-  // hexagon: {i, x, y, color}
   const hexagons = getHexagons(HEXAGON_MAP_LEVEL, HEXAGON_SIZE);
   const numHexagons = hexagons.length;
 
   const angle0 = Math.random() * Math.PI * 2;
   const angle1 = Math.random() * Math.PI * 2;
-
 
   const balls = [
     {
@@ -157,12 +150,10 @@
     const [hx, hy] = hexCenter;
     const [cx, cy] = circleCenter;
 
-    // 正六角形の中心と円の中心の距離 > 正六角形の中心から頂点までの距離 + 円の半径 のときは重なっていない
     if (Math.sqrt((hx - cx) ** 2 + (hy - cy) ** 2) > r / Math.cos(Math.PI / 6) + R) {
       return false;
     }
 
-    // 正六角形の頂点の座標を計算する
     const vertices = [];
     for (let i = 0; i < 6; i++) {
       const angle = (60 * i) * Math.PI / 180;
@@ -171,7 +162,6 @@
       vertices.push([vx, vy]);
     }
 
-    // 円の中心が正六角形の内部にあるかチェックする
     function isPointInHexagon(px, py) {
       const translatedX = px - hx;
       const translatedY = py - hy;
@@ -187,7 +177,6 @@
       return true;
     }
 
-    // 線分と円の交差をチェックする関数
     function lineCircleIntersection(x1, y1, x2, y2, cx, cy, r) {
       const acx = cx - x1;
       const acy = cy - y1;
@@ -214,7 +203,6 @@
       }
     }
 
-    // 正六角形の各辺が円と交差しているかチェック
     for (let i = 0; i < 6; i++) {
       const [x1, y1] = vertices[i];
       const [x2, y2] = vertices[(i + 1) % 6];
@@ -226,9 +214,7 @@
     return false;
   }
 
-
   function checkCollision(ball) {
-    // ボールが重なっている六角形を探す
     const collisionHexagons = [];
     for (let i = 0; i < numHexagons; i++) {
       const hex = hexagons[i];
@@ -240,55 +226,59 @@
       return;
     }
 
-    let fst = Number.MAX_VALUE;
-    let fsti = -1;
-    let snd = Number.MAX_VALUE;
-    let sndi = -1;
-    for (let j = 0; j < collisionHexagons.length; j++) {
-      const hex = collisionHexagons[j];
-      const dist = Math.sqrt((ball.x - hex.x) ** 2 + (ball.y - hex.y) ** 2);
-      if (dist < fst) {
-        snd = fst;
-        sndi = fsti;
-        fst = dist;
-        fsti = j;
-      } else if (dist < snd) {
-        snd = dist;
-        sndi = j;
-      }
-    }
+    collisionHexagons.sort((a, b) => {
+      return Math.sqrt((ball.x - a.x) ** 2 + (ball.y - a.y) ** 2) - Math.sqrt((ball.x - b.x) ** 2 + (ball.y - b.y) ** 2);
+    });
 
-    const current = collisionHexagons[fsti];
-    const next = collisionHexagons[sndi];
+    const current = collisionHexagons[0];
+    const next = collisionHexagons[1];
 
-    // next - currentのベクトル(= 壁の法線ベクトル)
     const nx = next.x - current.x;
     const ny = next.y - current.y;
 
-
     if (next.color === WALL_COLOR) {
-      console.log("collision with wall")
       reflect({ x: nx, y: ny }, ball);
 
       if (collisionHexagons.length >= 3) {
         console.log(collisionHexagons);
       }
     } else if (next.color === NEITHER_COLOR) {
-      console.log("collision with neither")
-      next.color = ball.reverseColor;
-    } else if (next.color !== ball.reverseColor) {
-      console.log("collision with opposite color")
       next.color = ball.reverseColor;
 
+      if (collisionHexagons.length >= 3) {
+        const third = collisionHexagons[2];
+        const tx = third.x - current.x;
+        const ty = third.y - current.y;
+        if (third.color === WALL_COLOR) {
+          reflect({ x: tx, y: ty }, ball);
+        } else if (third.color === NEITHER_COLOR) {
+          third.color = ball.reverseColor;
+        } else if (third.color !== ball.reverseColor) {
+          third.color = ball.reverseColor;
+          reflect({ x: tx, y: ty }, ball);
+        }
+      }
+    } else if (next.color !== ball.reverseColor) {
+      next.color = ball.reverseColor;
       reflect({ x: nx, y: ny }, ball);
+    } else {
+      if (collisionHexagons.length >= 3) {
+        const third = collisionHexagons[2];
+        const tx = third.x - current.x;
+        const ty = third.y - current.y;
+        if (third.color === WALL_COLOR) {
+          reflect({ x: tx, y: ty }, ball);
+        } else if (third.color === NEITHER_COLOR) {
+          third.color = ball.reverseColor;
+        } else if (third.color !== ball.reverseColor) {
+          third.color = ball.reverseColor;
+          reflect({ x: tx, y: ty }, ball);
+        }
+      }
     }
 
-    // 壁の法線ベクトルnvがわかっているときの、ボールの跳ね返り後の速度ベクトルを計算する関数
-    // nv: 壁の法線ベクトル
-    // ball: ボールのオブジェクト
-    // 反射ベクトル = 入射ベクトル - 2 * (入射ベクトル・法線ベクトル) * 法線ベクトル
-
     function reflect(nv, ball) {
+      console.log("reflect", nv, ball);
       const nvLength = Math.sqrt(nv.x ** 2 + nv.y ** 2);
       const nvUnit = { x: nv.x / nvLength, y: nv.y / nvLength };
 
@@ -298,19 +288,18 @@
 
       ball.dx = reflectX;
       ball.dy = reflectY;
+      ball.x += ball.dx;
+      ball.y += ball.dy;
     }
-
   }
 
   function addRandomness(ball) {
     ball.dx += Math.random() * 0.01 - 0.005;
     ball.dy += Math.random() * 0.01 - 0.005;
 
-    // Limit the speed of the ball
     ball.dx = Math.min(Math.max(ball.dx, -MAX_SPEED), MAX_SPEED);
     ball.dy = Math.min(Math.max(ball.dy, -MAX_SPEED), MAX_SPEED);
 
-    // Make sure the ball always maintains a minimum speed
     if (Math.abs(ball.dx) < MIN_SPEED)
       ball.dx = ball.dx > 0 ? MIN_SPEED : -MIN_SPEED;
     if (Math.abs(ball.dy) < MIN_SPEED)
@@ -335,7 +324,6 @@
       }
     }
 
-    // 外壁を作る
     const l = level + 1;
     for (let vertex = 0; vertex < 6; vertex++) {
       const x = 2 * l * size * Math.cos(2 * Math.PI / 6 * vertex);
@@ -354,7 +342,6 @@
     for (let p = 0; p < 6; p++) {
       const t = 2 * Math.PI / 6 * p + Math.PI / 6;
       ctx.lineTo(x + size * Math.cos(t) / Math.cos(Math.PI / 6), y + size * Math.sin(t) / Math.cos(Math.PI / 6));
-      // ctx.lineTo(x + size * Math.cos(2 * Math.PI / 6 * p), y + size * Math.sin(2 * Math.PI / 6 * p));
     }
     ctx.fillStyle = color;
     ctx.fill();
