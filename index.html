@@ -100,40 +100,41 @@
   const DAY_BALL_COLOR = colorPalette.NocturnalExpedition;
   const NIGHT_COLOR = colorPalette.NocturnalExpedition;
   const NIGHT_BALL_COLOR = colorPalette.MysticMint;
-  const SQUARE_SIZE = 25;
-  const MIN_SPEED = 5;
-  const MAX_SPEED = 10;
+  const NEITHER_COLOR = colorPalette.ArcticPowder;
+  const WALL_COLOR = colorPalette.DeepSaffron;
+  const HEXAGON_SIZE = 15; // 隣の六角形との中心間距離
+  const BALL_RADIUS = HEXAGON_SIZE / 5;
+  const MIN_SPEED = 1;
+  const MAX_SPEED = 3;
 
-  const numSquaresX = canvas.width / SQUARE_SIZE;
-  const numSquaresY = canvas.height / SQUARE_SIZE;
+  const HEXAGON_MAP_LEVEL = 8;
+
 
   let dayScore = 0;
   let nightScore = 0;
 
-  const squares = [];
 
-  // Populate the fields, one half day, one half night
-  for (let i = 0; i < numSquaresX; i++) {
-    squares[i] = [];
-    for (let j = 0; j < numSquaresY; j++) {
-      squares[i][j] = i < numSquaresX / 2 ? DAY_COLOR : NIGHT_COLOR;
-    }
-  }
+  // hexagon: {i, x, y, color}
+  const hexagons = getHexagons(HEXAGON_MAP_LEVEL, HEXAGON_SIZE);
+  const numHexagons = hexagons.length;
+
 
   const balls = [
     {
-      x: canvas.width / 4,
-      y: canvas.height / 2,
-      dx: 8,
-      dy: -8,
+      i: getMostClose(-canvas.width / 4, 0),
+      x: -canvas.width / 4,
+      y: 0,
+      dx: 2,
+      dy: 1,
       reverseColor: DAY_COLOR,
       ballColor: DAY_BALL_COLOR,
     },
     {
-      x: (canvas.width / 4) * 3,
-      y: canvas.height / 2,
-      dx: -8,
-      dy: 8,
+      i: getMostClose(canvas.width / 4, 0),
+      x: canvas.width / 4,
+      y: 0,
+      dx: -1,
+      dy: -2,
       reverseColor: NIGHT_COLOR,
       ballColor: NIGHT_BALL_COLOR,
     },
@@ -141,73 +142,104 @@
 
   let iteration = 0;
 
+
+  function getMostClose(x, y) {
+    let fst = Number.MAX_VALUE;
+    let fsti = -1;
+    for (let j = 0; j < numHexagons; j++) {
+      const hex = hexagons[j];
+      const dist = Math.sqrt((x - hex.x) ** 2 + (y - hex.y) ** 2);
+      if (dist < fst) {
+        fst = dist;
+        fsti = j;
+      }
+    }
+    return fsti;
+  }
+
   function drawBall(ball) {
     ctx.beginPath();
-    ctx.arc(ball.x, ball.y, SQUARE_SIZE / 2, 0, Math.PI * 2, false);
+    ctx.arc(ball.x + canvas.width / 2, ball.y + canvas.height / 2, BALL_RADIUS, 0, Math.PI * 2, false);
     ctx.fillStyle = ball.ballColor;
     ctx.fill();
     ctx.closePath();
   }
 
-  function drawSquares() {
-    dayScore = 0;
-    nightScore = 0;
 
-    for (let i = 0; i < numSquaresX; i++) {
-      for (let j = 0; j < numSquaresY; j++) {
-        ctx.fillStyle = squares[i][j];
-        ctx.fillRect(
-          i * SQUARE_SIZE,
-          j * SQUARE_SIZE,
-          SQUARE_SIZE,
-          SQUARE_SIZE
-        );
+  function checkCollision(ball) {
+    // 現在いる六角形の周囲の六角形との境界での衝突をチェック
+    const current = hexagons[getMostClose(ball.x, ball.y)];
 
-        // Update scores
-        if (squares[i][j] === DAY_COLOR) dayScore++;
-        if (squares[i][j] === NIGHT_COLOR) nightScore++;
-      }
+    let isBallOnEdge = false;
+
+    for (let i = 0; i < 6; i++) {
+      // (ball.x, ball.y)を(current.x, current.y)を中心にを反時計回りに60*i度回転させた点を(nx, ny)とする(ただしcurrentに対する位置)
+      const nx = (ball.x - current.x) * Math.cos(Math.PI / 3 * i) - (ball.y - current.y) * Math.sin(Math.PI / 3 * i);
+
+      // nx+BALL_RADIUS>HEXAGON_SIZE*sin(PI/12)なら衝突している
+      isBallOnEdge |= nx + BALL_RADIUS > HEXAGON_SIZE;
     }
-  }
 
-  function checkSquareCollision(ball) {
-    // Check multiple points around the ball's circumference
-    for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
-      const checkX = ball.x + Math.cos(angle) * (SQUARE_SIZE / 2);
-      const checkY = ball.y + Math.sin(angle) * (SQUARE_SIZE / 2);
+    if (isBallOnEdge) {
+      // 衝突している六角形のインデックスを求める
+      // 全ての六角形に対してボールとの距離を求め、二番目に距離が短いものを選ぶ（最小はcurrentなので）
+      // (この実装は無理やりなので、余裕があれば修正する)
 
-      const i = Math.floor(checkX / SQUARE_SIZE);
-      const j = Math.floor(checkY / SQUARE_SIZE);
-
-      if (i >= 0 && i < numSquaresX && j >= 0 && j < numSquaresY) {
-        if (squares[i][j] !== ball.reverseColor) {
-          // Square hit! Update square color
-          squares[i][j] = ball.reverseColor;
-
-          // Determine bounce direction based on the angle
-          if (Math.abs(Math.cos(angle)) > Math.abs(Math.sin(angle))) {
-            ball.dx = -ball.dx;
-          } else {
-            ball.dy = -ball.dy;
-          }
+      let fst = Number.MAX_VALUE;
+      let fsti = -1;
+      let snd = Number.MAX_VALUE;
+      let sndi = -1;
+      for (let j = 0; j < numHexagons; j++) {
+        const hex = hexagons[j];
+        const dist = Math.sqrt((ball.x - hex.x) ** 2 + (ball.y - hex.y) ** 2);
+        if (dist < fst) {
+          snd = fst;
+          sndi = fsti;
+          fst = dist;
+          fsti = j;
+        } else if (dist < snd) {
+          snd = dist;
+          sndi = j;
         }
       }
+
+
+      const next = hexagons[sndi];
+
+      // next - currentのベクトル(= 壁の法線ベクトル)
+      const nx = next.x - current.x;
+      const ny = next.y - current.y;
+
+
+      if (next.color === WALL_COLOR) {
+        const { dx, dy } = reflectVector(ball.dx, ball.dy, nx, ny);
+        ball.dx = dx;
+        ball.dy = dy;
+      } else if (next.color === NEITHER_COLOR) {
+        next.color = ball.reverseColor;
+      } else if (next.color !== ball.reverseColor) {
+        next.color = ball.reverseColor;
+
+        const { dx, dy } = reflectVector(ball.dx, ball.dy, nx, ny);
+        ball.dx = dx;
+        ball.dy = dy;
+      }
     }
   }
+  function reflectVector(dx, dy, nx, ny) {
+    // 法線ベクトルを正規化する
+    const length = Math.sqrt(nx * nx + ny * ny);
+    const nxNormalized = nx / length;
+    const nyNormalized = ny / length;
 
-  function checkBoundaryCollision(ball) {
-    if (
-      ball.x + ball.dx > canvas.width - SQUARE_SIZE / 2 ||
-      ball.x + ball.dx < SQUARE_SIZE / 2
-    ) {
-      ball.dx = -ball.dx;
-    }
-    if (
-      ball.y + ball.dy > canvas.height - SQUARE_SIZE / 2 ||
-      ball.y + ball.dy < SQUARE_SIZE / 2
-    ) {
-      ball.dy = -ball.dy;
-    }
+    // 速度ベクトルと法線ベクトルの内積を計算する
+    const dot = dx * nxNormalized + dy * nyNormalized;
+
+    // 反射後の速度ベクトルを計算する
+    const dxPrime = dx - 2 * dot * nxNormalized;
+    const dyPrime = dy - 2 * dot * nyNormalized;
+
+    return { dx: dxPrime, dy: dyPrime };
   }
 
   function addRandomness(ball) {
@@ -225,16 +257,71 @@
       ball.dy = ball.dy > 0 ? MIN_SPEED : -MIN_SPEED;
   }
 
+  function getHexagons(level, size) {
+    const res = [];
+    for (let l = 0; l <= level; l++) {
+      if (l === 0) {
+        res.push({ i: res.length, x: 0, y: 0, color: NEITHER_COLOR });
+      } else {
+        for (let vertex = 0; vertex < 6; vertex++) {
+          const x = 2 * l * size * Math.cos(2 * Math.PI / 6 * vertex);
+          const y = 2 * l * size * Math.sin(2 * Math.PI / 6 * vertex);
+          for (let dir = 0; dir < l; dir++) {
+            const dx = 2 * dir * size * Math.cos(2 * Math.PI / 6 * vertex + 2 * Math.PI / 3);
+            const dy = 2 * dir * size * Math.sin(2 * Math.PI / 6 * vertex + 2 * Math.PI / 3);
+            res.push({ i: res.length, x: x + dx, y: y + dy, color: NEITHER_COLOR });
+          }
+        }
+      }
+    }
+
+    // 外壁を作る
+    const l = level + 1;
+    for (let vertex = 0; vertex < 6; vertex++) {
+      const x = 2 * l * size * Math.cos(2 * Math.PI / 6 * vertex);
+      const y = 2 * l * size * Math.sin(2 * Math.PI / 6 * vertex);
+      for (let dir = 0; dir < l; dir++) {
+        const dx = 2 * dir * size * Math.cos(2 * Math.PI / 6 * vertex + 2 * Math.PI / 3);
+        const dy = 2 * dir * size * Math.sin(2 * Math.PI / 6 * vertex + 2 * Math.PI / 3);
+        res.push({ i: res.length, x: x + dx, y: y + dy, color: WALL_COLOR });
+      }
+    }
+    return res;
+  }
+
+  function drawHexagon(x, y, size, color) {
+    ctx.beginPath();
+    for (let p = 0; p < 6; p++) {
+      const t = 2 * Math.PI / 6 * p + Math.PI / 6;
+      ctx.lineTo(x + size * Math.cos(t) / Math.cos(Math.PI / 6), y + size * Math.sin(t) / Math.cos(Math.PI / 6));
+      // ctx.lineTo(x + size * Math.cos(2 * Math.PI / 6 * p), y + size * Math.sin(2 * Math.PI / 6 * p));
+    }
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.closePath();
+  }
+
+  function drawHexMap() {
+    dayScore = 0;
+    nightScore = 0;
+
+    hexagons.forEach((hexagon) => {
+      drawHexagon(hexagon.x + canvas.width / 2, hexagon.y + canvas.height / 2, HEXAGON_SIZE, hexagon.color);
+      if (hexagon.color === DAY_COLOR) dayScore++;
+      if (hexagon.color === NIGHT_COLOR) nightScore++;
+    });
+  }
+
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawSquares();
+    drawHexMap();
 
     scoreElement.textContent = `day ${dayScore} | night ${nightScore}`;
 
     balls.forEach((ball) => {
       drawBall(ball);
-      checkSquareCollision(ball);
-      checkBoundaryCollision(ball);
+      checkCollision(ball);
+      // checkBoundaryCollision(ball);
       ball.x += ball.dx;
       ball.y += ball.dy;
 
@@ -243,7 +330,6 @@
 
     iteration++;
     if (iteration % 1_000 === 0) console.log("iteration", iteration);
-
     requestAnimationFrame(draw);
   }
 
