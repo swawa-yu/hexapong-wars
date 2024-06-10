@@ -2,14 +2,27 @@
 <html>
 
 <head>
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Pong wars | Koen van Gilst</title>
+  <title>Hexapong wars | swawa_yu</title>
   <meta name="description"
-    content="The eternal battle between day and night, good and bad. Written in JavaScript with some HTML & CSS in one index.html. Feel free to reuse the code and create your own version." />
-  <link rel="canonical" href="https://pong-wars.koenvangilst.nl/" />
-  <link rel="author" href="https://koenvangilst.nl" />
+    content="The eternal battle between day and night, good and bad, on a hexagon map. Written in JavaScript with some HTML & CSS in one index.html." />
+  <link rel="author" href="https://swawa.dev" />
   <meta name="theme-color" content="#172B36" />
-  <meta name="creator" content="Koen van Gilst" />
+  <meta name="creator" content="swawa_yu" />
+
+  <link rel="icon" href="https://raw.githubusercontent.com/swawa-yu/icons/main/mel_icon.ico" type="image/x-icon">
+
+  <meta property="og:title" content="Hexapong Wars" />
+  <meta property="og:image" content="./image.png" />
+  <meta property="og:url" content="https://swawa-yu.github.io/hexapong-wars/">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@swawa_yu">
+  <meta name="twitter:creator" content="@swawa_yu">
+  <meta name="twitter:title" content="Hexapong Wars">
+  <meta name="twitter:image" content="./image.png">
+
   <style>
     html {
       height: 100%;
@@ -72,9 +85,9 @@
     <div id="score"></div>
     <p id="made">
       made by
-      <a href="https://koenvangilst.nl/labs/pong-wars">Koen van Gilst</a> |
+      <a href="https://swawa.dev">swawa_yu</a> |
       source on
-      <a href="https://github.com/vnglst/pong-wars">github</a>
+      <a href="https://github.com/swawa-yu/hexapong-wars">GitHub</a>
     </p>
   </div>
 </body>
@@ -99,7 +112,7 @@
   const NIGHT_BALL_COLOR = colorPalette.MysticMint;
   const NEITHER_COLOR = colorPalette.ArcticPowder;
   const WALL_COLOR = colorPalette.DeepSaffron;
-  const HEXAGON_SIZE = 17.8;
+  const HEXAGON_SIZE = 17.5;
   const BALL_RADIUS = HEXAGON_SIZE / 1.5;
 
   const MID_SPEED = 2;
