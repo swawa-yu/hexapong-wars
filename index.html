@@ -354,7 +354,7 @@
     ctx.beginPath();
     for (let p = 0; p < 6; p++) {
       const t = 2 * Math.PI / 6 * p + Math.PI / 6;
-      ctx.lineTo(x + size * Math.cos(t) / Math.cos(Math.PI / 6), y + size * Math.sin(t) / Math.cos(Math.PI / 6));
+      ctx.lineTo(x + size * Math.cos(t) / Math.cos(Math.PI / 6) * 0.98, y + size * Math.sin(t) / Math.cos(Math.PI / 6)) * 0.98;
     }
     ctx.fillStyle = color;
     ctx.fill();
