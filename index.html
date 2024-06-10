@@ -102,12 +102,12 @@
   const NIGHT_BALL_COLOR = colorPalette.MysticMint;
   const NEITHER_COLOR = colorPalette.ArcticPowder;
   const WALL_COLOR = colorPalette.DeepSaffron;
-  const HEXAGON_SIZE = 15; // 隣の六角形との中心間距離
-  const BALL_RADIUS = HEXAGON_SIZE / 5;
-  const MIN_SPEED = 1;
-  const MAX_SPEED = 3;
+  const HEXAGON_SIZE = 25; // 隣の六角形との中心間距離
+  const BALL_RADIUS = HEXAGON_SIZE / 3;
+  const MIN_SPEED = 2;
+  const MAX_SPEED = 4;
 
-  const HEXAGON_MAP_LEVEL = 8;
+  const HEXAGON_MAP_LEVEL = 5;
 
 
   let dayScore = 0;
@@ -125,7 +125,7 @@
       x: -canvas.width / 4,
       y: 0,
       dx: 2,
-      dy: 1,
+      dy: 1.5,
       reverseColor: DAY_COLOR,
       ballColor: DAY_BALL_COLOR,
     },
@@ -133,8 +133,8 @@
       i: getMostClose(canvas.width / 4, 0),
       x: canvas.width / 4,
       y: 0,
-      dx: -1,
-      dy: -2,
+      dx: 1,
+      dy: -3,
       reverseColor: NIGHT_COLOR,
       ballColor: NIGHT_BALL_COLOR,
     },
@@ -165,81 +165,160 @@
     ctx.closePath();
   }
 
+  function isOverlapping(r, R, hexCenter, circleCenter) {
+    const [hx, hy] = hexCenter;
+    const [cx, cy] = circleCenter;
+
+    // 正六角形の中心と円の中心の距離 > 正六角形の中心から頂点までの距離 + 円の半径 のときは重なっていない
+    if (Math.sqrt((hx - cx) ** 2 + (hy - cy) ** 2) > r / Math.cos(Math.PI / 6) + R) {
+      return false;
+    }
+
+    // 正六角形の頂点の座標を計算する
+    const vertices = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = (60 * i) * Math.PI / 180;
+      const vx = hx + r * Math.cos(angle + Math.PI / 6);
+      const vy = hy + r * Math.sin(angle + Math.PI / 6);
+      vertices.push([vx, vy]);
+    }
+
+    // 正六角形の頂点が円の中にあるかチェックする
+    for (const [vx, vy] of vertices) {
+      if ((vx - cx) ** 2 + (vy - cy) ** 2 <= R ** 2) {
+        return true;
+      }
+    }
+
+    // 円の中心が正六角形の内部にあるかチェックする
+    function isPointInHexagon(px, py) {
+      const translatedX = px - hx;
+      const translatedY = py - hy;
+
+      const q2 = Math.sqrt(3) * Math.abs(translatedY);
+      if (q2 > 3 * r) {
+        return false;
+      }
+      return Math.abs(translatedX) <= Math.min(r, 2 * r - q2);
+    }
+
+    if (isPointInHexagon(cx, cy)) {
+      return true;
+    }
+
+    // 線分と円の交差をチェックする関数
+    function lineCircleIntersection(x1, y1, x2, y2, cx, cy, r) {
+      const acx = cx - x1;
+      const acy = cy - y1;
+      const abx = x2 - x1;
+      const aby = y2 - y1;
+
+      const ab_ab = abx * abx + aby * aby;
+      const ab_ac = abx * acx + aby * acy;
+      const t = ab_ac / ab_ab;
+
+      const hpx = x1 + t * abx;
+      const hpy = y1 + t * aby;
+      const hcx = hpx - cx;
+      const hcy = hpy - cy;
+
+      if (t >= 0 && t <= 1) {
+        return hcx * hcx + hcy * hcy <= r * r;
+      } else if (t < 0) {
+        return acx * acx + acy * acy <= r * r;
+      } else {
+        const bcx = cx - x2;
+        const bcy = cy - y2;
+        return bcx * bcx + bcy * bcy <= r * r;
+      }
+    }
+
+    // 正六角形の各辺が円と交差しているかチェック
+    for (let i = 0; i < 6; i++) {
+      const [x1, y1] = vertices[i];
+      const [x2, y2] = vertices[(i + 1) % 6];
+      if (lineCircleIntersection(x1, y1, x2, y2, cx, cy, R)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
 
   function checkCollision(ball) {
-    // 現在いる六角形の周囲の六角形との境界での衝突をチェック
-    const current = hexagons[getMostClose(ball.x, ball.y)];
-
-    let isBallOnEdge = false;
-
-    for (let i = 0; i < 6; i++) {
-      // (ball.x, ball.y)を(current.x, current.y)を中心にを反時計回りに60*i度回転させた点を(nx, ny)とする(ただしcurrentに対する位置)
-      const nx = (ball.x - current.x) * Math.cos(Math.PI / 3 * i) - (ball.y - current.y) * Math.sin(Math.PI / 3 * i);
-
-      // nx+BALL_RADIUS>HEXAGON_SIZE*sin(PI/12)なら衝突している
-      isBallOnEdge |= nx + BALL_RADIUS > HEXAGON_SIZE;
-    }
-
-    if (isBallOnEdge) {
-      // 衝突している六角形のインデックスを求める
-      // 全ての六角形に対してボールとの距離を求め、二番目に距離が短いものを選ぶ（最小はcurrentなので）
-      // (この実装は無理やりなので、余裕があれば修正する)
-
-      let fst = Number.MAX_VALUE;
-      let fsti = -1;
-      let snd = Number.MAX_VALUE;
-      let sndi = -1;
-      for (let j = 0; j < numHexagons; j++) {
-        const hex = hexagons[j];
-        const dist = Math.sqrt((ball.x - hex.x) ** 2 + (ball.y - hex.y) ** 2);
-        if (dist < fst) {
-          snd = fst;
-          sndi = fsti;
-          fst = dist;
-          fsti = j;
-        } else if (dist < snd) {
-          snd = dist;
-          sndi = j;
-        }
-      }
-
-
-      const next = hexagons[sndi];
-
-      // next - currentのベクトル(= 壁の法線ベクトル)
-      const nx = next.x - current.x;
-      const ny = next.y - current.y;
-
-
-      if (next.color === WALL_COLOR) {
-        const { dx, dy } = reflectVector(ball.dx, ball.dy, nx, ny);
-        ball.dx = dx;
-        ball.dy = dy;
-      } else if (next.color === NEITHER_COLOR) {
-        next.color = ball.reverseColor;
-      } else if (next.color !== ball.reverseColor) {
-        next.color = ball.reverseColor;
-
-        const { dx, dy } = reflectVector(ball.dx, ball.dy, nx, ny);
-        ball.dx = dx;
-        ball.dy = dy;
+    // ボールが重なっている六角形を探す
+    const collisionHexagons = [];
+    for (let i = 0; i < numHexagons; i++) {
+      const hex = hexagons[i];
+      if (isOverlapping(HEXAGON_SIZE, BALL_RADIUS, [hex.x, hex.y], [ball.x, ball.y])) {
+        collisionHexagons.push(hex);
       }
     }
-  }
-  function reflectVector(dx, dy, nx, ny) {
-    // 法線ベクトルを正規化する
-    const length = Math.sqrt(nx * nx + ny * ny);
-    const nxNormalized = nx / length;
-    const nyNormalized = ny / length;
+    if (collisionHexagons.length < 2) {
+      return;
+    }
 
-    // 速度ベクトルと法線ベクトルの内積を計算する
-    const dot = dx * nxNormalized + dy * nyNormalized;
+    let fst = Number.MAX_VALUE;
+    let fsti = -1;
+    let snd = Number.MAX_VALUE;
+    let sndi = -1;
+    for (let j = 0; j < collisionHexagons.length; j++) {
+      const hex = collisionHexagons[j];
+      const dist = Math.sqrt((ball.x - hex.x) ** 2 + (ball.y - hex.y) ** 2);
+      if (dist < fst) {
+        snd = fst;
+        sndi = fsti;
+        fst = dist;
+        fsti = j;
+      } else if (dist < snd) {
+        snd = dist;
+        sndi = j;
+      }
+    }
 
-    // 反射後の速度ベクトルを計算する
-    const dxPrime = dx - 2 * dot * nxNormalized;
-    const dyPrime = dy - 2 * dot * nyNormalized;
+    const current = collisionHexagons[fsti];
+    const next = collisionHexagons[sndi];
 
-    return { dx: dxPrime, dy: dyPrime };
+    // next - currentのベクトル(= 壁の法線ベクトル)
+    const nx = next.x - current.x;
+    const ny = next.y - current.y;
+
+
+    if (next.color === WALL_COLOR) {
+      console.log("collision with wall")
+      reflect({ x: nx, y: ny }, ball);
+
+      if (collisionHexagons.length >= 3) {
+        console.log(collisionHexagons);
+      }
+    } else if (next.color === NEITHER_COLOR) {
+      console.log("collision with neither")
+      next.color = ball.reverseColor;
+    } else if (next.color !== ball.reverseColor) {
+      console.log("collision with opposite color")
+      next.color = ball.reverseColor;
+
+      reflect({ x: nx, y: ny }, ball);
+    }
+
+    // 壁の法線ベクトルnvがわかっているときの、ボールの跳ね返り後の速度ベクトルを計算する関数
+    // nv: 壁の法線ベクトル
+    // ball: ボールのオブジェクト
+    // 反射ベクトル = 入射ベクトル - 2 * (入射ベクトル・法線ベクトル) * 法線ベクトル
+
+    function reflect(nv, ball) {
+      const nvLength = Math.sqrt(nv.x ** 2 + nv.y ** 2);
+      const nvUnit = { x: nv.x / nvLength, y: nv.y / nvLength };
+
+      const dot = ball.dx * nvUnit.x + ball.dy * nvUnit.y;
+      const reflectX = ball.dx - 2 * dot * nvUnit.x;
+      const reflectY = ball.dy - 2 * dot * nvUnit.y;
+
+      ball.dx = reflectX;
+      ball.dy = reflectY;
+    }
+
   }
 
   function addRandomness(ball) {
@@ -321,7 +400,6 @@
     balls.forEach((ball) => {
       drawBall(ball);
       checkCollision(ball);
-      // checkBoundaryCollision(ball);
       ball.x += ball.dx;
       ball.y += ball.dy;
 
@@ -332,7 +410,6 @@
     if (iteration % 1_000 === 0) console.log("iteration", iteration);
     requestAnimationFrame(draw);
   }
-
   requestAnimationFrame(draw);
 </script>
 
