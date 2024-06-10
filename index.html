@@ -353,6 +353,8 @@
     nightScore = 0;
 
     hexagons.forEach((hexagon) => {
+      if (hexagon.color === WALL_COLOR) return;
+      if (hexagon.color === NEITHER_COLOR) return;
       drawHexagon(hexagon.x + canvas.width / 2, hexagon.y + canvas.height / 2, HEXAGON_SIZE, hexagon.color);
       if (hexagon.color === DAY_COLOR) dayScore++;
       if (hexagon.color === NIGHT_COLOR) nightScore++;
