@@ -235,50 +235,63 @@
         collisionHexagons.push(hex);
       }
     }
-    if (collisionHexagons.length < 2) {
-      return;
-    }
 
     collisionHexagons.sort((a, b) => {
       return Math.sqrt((ball.x - a.x) ** 2 + (ball.y - a.y) ** 2) - Math.sqrt((ball.x - b.x) ** 2 + (ball.y - b.y) ** 2);
     });
 
-    const current = collisionHexagons[0];
-    const next = collisionHexagons[1];
+    if (collisionHexagons.length === 0 || collisionHexagons.length >= 4) {
+      console.log("error", collisionHexagons);
+      return;
+    }
 
-    const nx = next.x - current.x;
-    const ny = next.y - current.y;
-
-    if (next.color === WALL_COLOR) {
-      reflect({ x: nx, y: ny }, ball);
-
-      if (collisionHexagons.length >= 3) {
-        console.log(collisionHexagons);
+    if (collisionHexagons.length === 1) {
+      if (collisionHexagons[0].color === WALL_COLOR) {
+        console.log("error: ball in wall", collisionHexagons[0]);
+      } else if (collisionHexagons[0].color === NEITHER_COLOR) {
+        collisionHexagons[0].color = ball.reverseColor;
+      } else if (collisionHexagons[0].color !== ball.reverseColor) {
+        collisionHexagons[0].color = ball.reverseColor;
       }
-    } else if (next.color === NEITHER_COLOR) {
-      next.color = ball.reverseColor;
+    }
 
-      if (collisionHexagons.length >= 3) {
-        const third = collisionHexagons[2];
-        const tx = third.x - current.x;
-        const ty = third.y - current.y;
-        if (third.color === WALL_COLOR) {
-          reflect({ x: tx, y: ty }, ball);
-        } else if (third.color === NEITHER_COLOR) {
-          third.color = ball.reverseColor;
-        } else if (third.color !== ball.reverseColor) {
-          third.color = ball.reverseColor;
-          reflect({ x: tx, y: ty }, ball);
-        }
+    if (collisionHexagons.length === 2) {
+      const current = collisionHexagons[0];
+      const next = collisionHexagons[1];
+
+      const nx = next.x - current.x;
+      const ny = next.y - current.y;
+
+      if (next.color === WALL_COLOR) {
+        reflect({ x: nx, y: ny }, ball);
+      } else if (next.color === NEITHER_COLOR) {
+        next.color = ball.reverseColor;
+      } else if (next.color !== ball.reverseColor) {
+        next.color = ball.reverseColor;
+        reflect({ x: nx, y: ny }, ball);
       }
-    } else if (next.color !== ball.reverseColor) {
-      next.color = ball.reverseColor;
-      reflect({ x: nx, y: ny }, ball);
-    } else {
-      if (collisionHexagons.length >= 3) {
-        const third = collisionHexagons[2];
-        const tx = third.x - current.x;
-        const ty = third.y - current.y;
+    } else if (collisionHexagons.length === 3) {
+      const current = collisionHexagons[0];
+      const next = collisionHexagons[1];
+      const third = collisionHexagons[2];
+
+      const nx = next.x - current.x;
+      const ny = next.y - current.y;
+      const tx = third.x - current.x;
+      const ty = third.y - current.y;
+
+
+      if (next.color === WALL_COLOR) {
+        reflect({ x: nx, y: ny }, ball);
+      } else if (next.color === NEITHER_COLOR) {
+        next.color = ball.reverseColor;
+      } else if (next.color !== ball.reverseColor) {
+        next.color = ball.reverseColor;
+        reflect({ x: nx, y: ny }, ball);
+      }
+
+      if (isOverlapping(HEXAGON_SIZE, BALL_RADIUS, [third.x, third.y], [ball.x, ball.y])) {
+
         if (third.color === WALL_COLOR) {
           reflect({ x: tx, y: ty }, ball);
         } else if (third.color === NEITHER_COLOR) {
@@ -291,7 +304,6 @@
     }
 
     function reflect(nv, ball) {
-      console.log("reflect", nv, ball);
       const nvLength = Math.sqrt(nv.x ** 2 + nv.y ** 2);
       const nvUnit = { x: nv.x / nvLength, y: nv.y / nvLength };
 
