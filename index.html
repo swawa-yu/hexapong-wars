@@ -227,6 +227,47 @@
     return false;
   }
 
+
+  function forceValidPos(ball) {
+    // 壁でない六角形ののうち、近い方から3つ選び、それらの中心の平均に向ける
+    let fst = null;
+    let snd = null;
+    let trd = null;
+    let minDist = Infinity;
+    let sndDist = Infinity;
+    let trdDist = Infinity;
+    for (let i = 0; i < numHexagons - (HEXAGON_MAP_LEVEL + 1) * 6; i++) {
+      const hex = hexagons[i];
+      const dist = Math.sqrt((ball.x - hex.x) ** 2 + (ball.y - hex.y) ** 2);
+      if (dist < minDist) {
+        trd = snd;
+        trdDist = sndDist;
+        snd = fst;
+        sndDist = minDist;
+        fst = hex;
+        minDist = dist;
+      } else if (dist < sndDist) {
+        trd = snd;
+        trdDist = sndDist;
+        snd = hex;
+        sndDist = dist;
+      } else if (dist < trdDist) {
+        trd = hex;
+        trdDist = dist;
+      }
+    }
+
+
+    // 大きさを維持したまま、中心に向ける
+    const dx = (fst.x + snd.x + trd.x) / 3 - ball.x;
+    const dy = (fst.y + snd.y + trd.y) / 3 - ball.y;
+    const length = Math.sqrt(dx ** 2 + dy ** 2);
+    ball.dx = dx / length * MID_SPEED;
+    ball.dy = dy / length * MID_SPEED;
+    ball.x += dx;
+    ball.y += dy;
+  }
+
   function checkCollision(ball) {
     const collisionHexagons = [];
     for (let i = 0; i < numHexagons; i++) {
@@ -240,35 +281,21 @@
       return Math.sqrt((ball.x - a.x) ** 2 + (ball.y - a.y) ** 2) - Math.sqrt((ball.x - b.x) ** 2 + (ball.y - b.y) ** 2);
     });
 
-    if (collisionHexagons.length === 0 || collisionHexagons.length >= 4) {
-      console.log("error", collisionHexagons);
+    if (collisionHexagons.length === 0) {
+      console.log("error: ball not in any hexagons", ball);
+      forceValidPos(ball);
       return;
+    }
+    if (collisionHexagons.length === 4) {
+      // ボールが小さければこうなることはない
+      console.log("error: ball in 4 hexagons", collisionHexagons);
     }
 
     if (collisionHexagons.length === 1) {
       if (collisionHexagons[0].color === WALL_COLOR) {
         console.log("error: ball in wall", collisionHexagons[0]);
+        forceValidPos(ball);
 
-        // 一番近い壁でない六角形の中心に向ける
-        let minhex = null;
-        let minDist = Infinity;
-        for (let i = 0; i < numHexagons - (HEXAGON_MAP_LEVEL + 1) * 6; i++) {
-          const hex = hexagons[i];
-          const dist = Math.sqrt((ball.x - hex.x) ** 2 + (ball.y - hex.y) ** 2);
-          if (dist < minDist) {
-            minDist = dist;
-            minhex = hex;
-          }
-        }
-
-        // 大きさを維持したまま、中心に向ける
-        const dx = minhex.x - ball.x;
-        const dy = minhex.y - ball.y;
-        const length = Math.sqrt(dx ** 2 + dy ** 2);
-        ball.dx = dx / length * MID_SPEED;
-        ball.dy = dy / length * MID_SPEED;
-        ball.x += dx;
-        ball.y += dy;
       } else if (collisionHexagons[0].color === NEITHER_COLOR) {
         collisionHexagons[0].color = ball.reverseColor;
       } else if (collisionHexagons[0].color !== ball.reverseColor) {
@@ -414,10 +441,11 @@
     scoreElement.textContent = `day ${dayScore} | night ${nightScore}`;
 
     balls.forEach((ball) => {
-      drawBall(ball);
       checkCollision(ball);
+      drawBall(ball);
       ball.x += ball.dx;
       ball.y += ball.dy;
+
 
       addRandomness(ball);
     });
