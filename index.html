@@ -115,7 +115,7 @@
   const HEXAGON_SIZE = 17.5;
   const BALL_RADIUS = HEXAGON_SIZE / 1.5;
 
-  const MID_SPEED = 2;
+  const MID_SPEED = 5;
   const MIN_SPEED = MID_SPEED / 1.5;
   const MAX_SPEED = MID_SPEED * 1.5;
 
@@ -248,6 +248,27 @@
     if (collisionHexagons.length === 1) {
       if (collisionHexagons[0].color === WALL_COLOR) {
         console.log("error: ball in wall", collisionHexagons[0]);
+
+        // 一番近い壁でない六角形の中心に向ける
+        let minhex = null;
+        let minDist = Infinity;
+        for (let i = 0; i < numHexagons - (HEXAGON_MAP_LEVEL + 1) * 6; i++) {
+          const hex = hexagons[i];
+          const dist = Math.sqrt((ball.x - hex.x) ** 2 + (ball.y - hex.y) ** 2);
+          if (dist < minDist) {
+            minDist = dist;
+            minhex = hex;
+          }
+        }
+
+        // 大きさを維持したまま、中心に向ける
+        const dx = minhex.x - ball.x;
+        const dy = minhex.y - ball.y;
+        const length = Math.sqrt(dx ** 2 + dy ** 2);
+        ball.dx = dx / length * MID_SPEED;
+        ball.dy = dy / length * MID_SPEED;
+        ball.x += dx;
+        ball.y += dy;
       } else if (collisionHexagons[0].color === NEITHER_COLOR) {
         collisionHexagons[0].color = ball.reverseColor;
       } else if (collisionHexagons[0].color !== ball.reverseColor) {
