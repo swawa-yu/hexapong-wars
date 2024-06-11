@@ -257,13 +257,14 @@
       }
     }
 
+    const speed = Math.sqrt(ball.dx ** 2 + ball.dy ** 2);
 
     // 大きさを維持したまま、中心に向ける
     const dx = (fst.x + snd.x + trd.x) / 3 - ball.x;
     const dy = (fst.y + snd.y + trd.y) / 3 - ball.y;
     const length = Math.sqrt(dx ** 2 + dy ** 2);
-    ball.dx = dx / length * MID_SPEED;
-    ball.dy = dy / length * MID_SPEED;
+    ball.dx = dx / length * speed;
+    ball.dy = dy / length * speed;
     ball.x += dx;
     ball.y += dy;
   }
