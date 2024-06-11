@@ -442,6 +442,22 @@
 
     balls.forEach((ball) => {
       checkCollision(ball);
+
+      //  現在の壁の六角形にいれば、適切な位置に移動させる
+      let minDist = Infinity;
+      let minHex = null;
+      for (let i = 0; i < numHexagons; i++) {
+        const hex = hexagons[i];
+        const dist = Math.sqrt((ball.x - hex.x) ** 2 + (ball.y - hex.y) ** 2);
+        if (dist < minDist) {
+          minDist = dist;
+          minHex = hex;
+        }
+      }
+      if (minHex.color === WALL_COLOR) {
+        forceValidPos(ball);
+      }
+
       drawBall(ball);
       ball.x += ball.dx;
       ball.y += ball.dy;
